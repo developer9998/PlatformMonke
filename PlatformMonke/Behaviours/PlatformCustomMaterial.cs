@@ -1,6 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using PlatformMonke.Utilities;
+using System.Collections.Generic;
 using UnityEngine;
-using PlatformMonke.Utilities;
 
 namespace PlatformMonke.Behaviours
 {

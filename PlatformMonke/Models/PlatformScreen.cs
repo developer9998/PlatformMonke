@@ -33,15 +33,17 @@ namespace PlatformMonke.Models
         public override InfoContent GetContent()
         {
             LineBuilder lines = new();
+            lines.Skip();
 
             if (!Plugin.Instance.InModdedRoom)
             {
-                lines.BeginCentre().BeginColour("FF6D49").Append("PlatformMonke must be disabled at this time.").EndColour().EndAlign().AppendLine().AppendLine();
-                lines.AppendLine("You must enter a modded room in order to use PlatformMonke.");
+                lines.BeginCentre().BeginColour("FF6D49").Append("PlatformMonke must be disabled at this time").EndColour().EndAlign().AppendLine().AppendLine();
+                lines.BeginCentre().Append("You must enter a modded room in order to use PlatformMonke.").EndAlign().AppendLine();
+
                 return lines;
             }
 
-            lines.Skip().Add(Plugin.Instance.enabled ? "<color=green>Enabled</color>" : "<color=red>Disabled</color>", new Widget_Switch(Plugin.Instance.enabled, value =>
+            lines.Add(Plugin.Instance.enabled ? "<color=green>Enabled</color>" : "<color=red>Disabled</color>", new Widget_Switch(Plugin.Instance.enabled, value =>
             {
                 Plugin.Instance.enabled = value;
                 SetText();

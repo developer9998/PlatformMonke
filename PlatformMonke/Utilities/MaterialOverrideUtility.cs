@@ -11,13 +11,13 @@ namespace PlatformMonke.Utilities
 
         public static void ClassifyOverrides(Material[] materialArray)
         {
-            for(int i = 0; i < materialArray.Length; i++)
+            for (int i = 0; i < materialArray.Length; i++)
             {
                 if (i == 0)
                 {
-                    Texture2D texture = new(80, 95, TextureFormat.RGBA32, false) 
+                    Texture2D texture = new(80, 95, TextureFormat.RGBA32, false)
                     {
-                        filterMode = FilterMode.Point 
+                        filterMode = FilterMode.Point
                     };
 
                     using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("PlatformMonke.Content.lightfur.png");
@@ -26,7 +26,7 @@ namespace PlatformMonke.Utilities
                     stream.Close();
                     texture.LoadImage(bytes);
 
-                    Material material = new(materialArray[4])
+                    Material material = new(materialArray[4]) // random paintbrawl material
                     {
                         color = Color.white, // doesn't completely matter here as this is substituted when used
                         mainTexture = texture

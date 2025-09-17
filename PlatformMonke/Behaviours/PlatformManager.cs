@@ -1,4 +1,5 @@
 ﻿using BepInEx.Configuration;
+using GorillaExtensions;
 using PlatformMonke.Models;
 using PlatformMonke.Tools;
 using PlatformMonke.Utilities;
@@ -6,7 +7,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using UnityEngine;
-using GorillaExtensions;
 using Player = GorillaLocomotion.GTPlayer;
 
 namespace PlatformMonke.Behaviours
@@ -138,11 +138,11 @@ namespace PlatformMonke.Behaviours
             Vector3 handEulerAngles = hand.eulerAngles;
             GorillaVelocityEstimator estimator = isLeftHand ? leftHandEstimator : rightHandEstimator;
 
-            float distance = Player.Instance.minimumRaycastDistance * 1.75f;
+            float distance = Player.Instance.minimumRaycastDistance * 1.5f;
             VRRig localRig = VRRig.LocalRig;
             Vector3 displacement = (isLeftHand ? -localRig.leftHandTransform.parent.right : localRig.rightHandTransform.parent.right) * distance;
-            Vector3 rigVelocity = VRRig.LocalRig.LatestVelocity();
-            Vector3 totalVelocity = Configuration.StickyPlatforms.Value ? Vector3.zero : estimator.linearVelocity + (Vector3.up * (rigVelocity.y < 0 ? rigVelocity.y : 0f)) + (rigVelocity.WithY(0f) * 1.75f);
+            Vector3 rigVelocity = localRig.LatestVelocity();
+            Vector3 totalVelocity = Configuration.StickyPlatforms.Value ? Vector3.zero : estimator.linearVelocity + (Vector3.up * (rigVelocity.y < 0f ? rigVelocity.y : 0f)) + (rigVelocity.WithY(0f) * 2f);
             Vector3 finalPosition = handPosition + displacement + (totalVelocity * Time.deltaTime);
 
             CreatePlatform(isLeftHand, finalPosition, handEulerAngles, (isLeftHand ? Configuration.LeftPlatformSize : Configuration.RightPlatformSize).Value, (isLeftHand ? Configuration.LeftPlatformColour : Configuration.RightPlatformColour).Value, LocalPlayer);
@@ -267,8 +267,8 @@ namespace PlatformMonke.Behaviours
             {
                 string[] array = Configuration.WhitelistedPlayers.Value;
                 IEnumerable<NetPlayer> playersToWhitelist = NetworkSystem.Instance.PlayerListOthers.Where(player => array.Contains(player.UserId));
-                
-                for(int i = 0; i < whitelistedPlayers.Count; i++)
+
+                for (int i = 0; i < whitelistedPlayers.Count; i++)
                 {
                     if (!playersToWhitelist.Contains(whitelistedPlayers[i]))
                     {
@@ -277,7 +277,7 @@ namespace PlatformMonke.Behaviours
                     }
                 }
 
-                foreach(NetPlayer player in playersToWhitelist)
+                foreach (NetPlayer player in playersToWhitelist)
                 {
                     if (!whitelistedPlayers.Contains(player))
                         whitelistedPlayers.Add(player);
