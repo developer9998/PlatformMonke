@@ -18,9 +18,28 @@ namespace PlatformMonke.Models
         public override string Title => "<color=#FFE65C>Platform Monke</color>";
         public override string Description => "Mod for Quest by <color=green>Waulta</color>, an unofficial port of AirJump by <color=blue>fchb1239</color>";
 
+        public override void OnScreenLoad()
+        {
+            NetworkSystem.Instance.OnMultiplayerStarted += SetContent;
+            NetworkSystem.Instance.OnReturnedToSinglePlayer += SetContent;
+        }
+
+        public override void OnScreenUnload()
+        {
+            NetworkSystem.Instance.OnMultiplayerStarted -= SetContent;
+            NetworkSystem.Instance.OnReturnedToSinglePlayer -= SetContent;
+        }
+
         public override InfoContent GetContent()
         {
             LineBuilder lines = new();
+
+            if (!Plugin.Instance.InModdedRoom)
+            {
+                lines.BeginCentre().BeginColour("FF6D49").Append("PlatformMonke must be disabled at this time.").EndColour().EndAlign().AppendLine().AppendLine();
+                lines.AppendLine("You must enter a modded room in order to use PlatformMonke.");
+                return lines;
+            }
 
             lines.Skip().Add(Plugin.Instance.enabled ? "<color=green>Enabled</color>" : "<color=red>Disabled</color>", new Widget_Switch(Plugin.Instance.enabled, value =>
             {

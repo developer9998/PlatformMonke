@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using UnityEngine;
+using GorillaExtensions;
 using Player = GorillaLocomotion.GTPlayer;
 
 namespace PlatformMonke.Behaviours
@@ -55,7 +56,7 @@ namespace PlatformMonke.Behaviours
 
             Instance = this;
 
-            localPlayer = NetworkSystem.Instance.GetLocalPlayer();
+            localPlayer = NetworkSystem.Instance?.GetLocalPlayer();
 
             leftHandEstimator = Player.Instance.leftControllerTransform.gameObject.AddComponent<GorillaVelocityEstimator>();
             leftHandEstimator.useGlobalSpace = true;
@@ -135,12 +136,14 @@ namespace PlatformMonke.Behaviours
             Transform hand = isLeftHand ? Player.Instance.leftHandFollower : Player.Instance.rightHandFollower;
             Vector3 handPosition = hand.position;
             Vector3 handEulerAngles = hand.eulerAngles;
-
             GorillaVelocityEstimator estimator = isLeftHand ? leftHandEstimator : rightHandEstimator;
 
-            Vector3 handOffset = Vector3.down * (Player.Instance.minimumRaycastDistance * 1.75f);
-            Vector3 totalVelocity = Configuration.StickyPlatforms.Value ? Vector3.zero : estimator.linearVelocity + VRRig.LocalRig.LatestVelocity();
-            Vector3 finalPosition = handPosition + handOffset + (totalVelocity * Time.deltaTime);
+            float distance = Player.Instance.minimumRaycastDistance * 1.75f;
+            VRRig localRig = VRRig.LocalRig;
+            Vector3 displacement = (isLeftHand ? -localRig.leftHandTransform.parent.right : localRig.rightHandTransform.parent.right) * distance;
+            Vector3 rigVelocity = VRRig.LocalRig.LatestVelocity();
+            Vector3 totalVelocity = Configuration.StickyPlatforms.Value ? Vector3.zero : estimator.linearVelocity + (Vector3.up * (rigVelocity.y < 0 ? rigVelocity.y : 0f)) + (rigVelocity.WithY(0f) * 1.75f);
+            Vector3 finalPosition = handPosition + displacement + (totalVelocity * Time.deltaTime);
 
             CreatePlatform(isLeftHand, finalPosition, handEulerAngles, (isLeftHand ? Configuration.LeftPlatformSize : Configuration.RightPlatformSize).Value, (isLeftHand ? Configuration.LeftPlatformColour : Configuration.RightPlatformColour).Value, LocalPlayer);
         }
