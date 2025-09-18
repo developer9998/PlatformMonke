@@ -138,12 +138,12 @@ namespace PlatformMonke.Behaviours
             Vector3 handEulerAngles = hand.eulerAngles;
             GorillaVelocityEstimator estimator = isLeftHand ? leftHandEstimator : rightHandEstimator;
 
-            float distance = Player.Instance.minimumRaycastDistance * 1.5f;
+            float distance = Player.Instance.minimumRaycastDistance * 1.4f;
             VRRig localRig = VRRig.LocalRig;
             Vector3 displacement = (isLeftHand ? -localRig.leftHandTransform.parent.right : localRig.rightHandTransform.parent.right) * distance;
             Vector3 rigVelocity = localRig.LatestVelocity();
-            Vector3 totalVelocity = Configuration.StickyPlatforms.Value ? Vector3.zero : estimator.linearVelocity + (Vector3.up * (rigVelocity.y < 0f ? rigVelocity.y : 0f)) + (rigVelocity.WithY(0f) * 2f);
-            Vector3 finalPosition = handPosition + displacement + (totalVelocity * Time.deltaTime);
+            Vector3 totalVelocity = Configuration.StickyPlatforms.Value ? Vector3.zero : estimator.linearVelocity + (Vector3.up * (rigVelocity.y < 0f ? rigVelocity.y : 0f)) + (rigVelocity.WithY(0f) * 2.5f);
+            Vector3 finalPosition = handPosition + displacement + (totalVelocity * Time.smoothDeltaTime);
 
             CreatePlatform(isLeftHand, finalPosition, handEulerAngles, (isLeftHand ? Configuration.LeftPlatformSize : Configuration.RightPlatformSize).Value, (isLeftHand ? Configuration.LeftPlatformColour : Configuration.RightPlatformColour).Value, LocalPlayer);
         }
