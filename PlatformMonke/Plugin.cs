@@ -27,11 +27,9 @@ namespace PlatformMonke
             Instance ??= this;
             Logger = base.Logger;
 
-            TypeConverter typeConverter = new()
-            {
-                ConvertToString = (obj, type) => JsonConvert.SerializeObject(obj),
-                ConvertToObject = JsonConvert.DeserializeObject
-            };
+            TypeConverter typeConverter = new();
+            typeConverter.ConvertToString = (value, type) => JsonConvert.SerializeObject(value, type, null);
+            typeConverter.ConvertToObject = (value, type) => JsonConvert.DeserializeObject(value, type, (JsonSerializerSettings)null);
             TomlTypeConverter.AddConverter(typeof(string[]), typeConverter);
 
             Configuration.LeftPlatformSize = Config.Bind("Collision", "Left Platform Size", PlatformSize.Default, "The size of the left platform");

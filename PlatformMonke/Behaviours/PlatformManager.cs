@@ -3,6 +3,7 @@ using GorillaExtensions;
 using PlatformMonke.Models;
 using PlatformMonke.Tools;
 using PlatformMonke.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -76,11 +77,11 @@ namespace PlatformMonke.Behaviours
 
         public void Update()
         {
-            if (Plugin.Instance.InModdedRoom && Plugin.Instance.enabled)
+            if (Plugin.Instance.InModdedRoom)
             {
                 wasInModdedRoom = true;
 
-                if (!hasLeftPlatform && ControllerInputPoller.instance.leftGrab)
+                if (!hasLeftPlatform && ControllerInputPoller.instance.leftGrab && Plugin.Instance.enabled)
                 {
                     hasLeftPlatform = true;
                     CreateLocalPlatform(true);
@@ -90,12 +91,12 @@ namespace PlatformMonke.Behaviours
                     hasLeftPlatform = false;
 
                     if (Configuration.RemoveReleasedPlatforms.Value) DestroyLocalPlatform(true);
-                    else if (platforms.ContainsKey(LocalPlayer) && platforms[LocalPlayer].TryGetValue(true, out var leftController) && leftController.IsStickyPlatform) leftController.ClearStickyFactor();
+                    else if (platforms.ContainsKey(LocalPlayer) && platforms[LocalPlayer].TryGetValue(true, out PlatformController leftController) && leftController.IsStickyPlatform) leftController.EndStickyEffect();
 
                     if (Configuration.StickyPlatforms.Value) Player.Instance.playerRigidBody.linearVelocity = Player.Instance.bodyVelocityTracker.GetAverageVelocity(true);
                 }
 
-                if (!hasRightPlatform && ControllerInputPoller.instance.rightGrab)
+                if (!hasRightPlatform && ControllerInputPoller.instance.rightGrab && Plugin.Instance.enabled)
                 {
                     hasRightPlatform = true;
                     CreateLocalPlatform(false);
@@ -105,9 +106,18 @@ namespace PlatformMonke.Behaviours
                     hasRightPlatform = false;
 
                     if (Configuration.RemoveReleasedPlatforms.Value) DestroyLocalPlatform(false);
-                    else if (platforms.ContainsKey(LocalPlayer) && platforms[LocalPlayer].TryGetValue(false, out var rightController) && rightController.IsStickyPlatform) rightController.ClearStickyFactor();
+                    else if (platforms.ContainsKey(LocalPlayer) && platforms[LocalPlayer].TryGetValue(false, out PlatformController rightController) && rightController.IsStickyPlatform) rightController.EndStickyEffect();
 
-                    if (Configuration.StickyPlatforms.Value) Player.Instance.playerRigidBody.linearVelocity = Player.Instance.bodyVelocityTracker.GetAverageVelocity(true, 0.15f, false);
+                    if (Configuration.StickyPlatforms.Value) Player.Instance.playerRigidBody.linearVelocity = Player.Instance.bodyVelocityTracker.GetAverageVelocity(true);
+                }
+
+                if ((hasLeftPlatform || hasRightPlatform) && !Plugin.Instance.enabled)
+                {
+                    hasLeftPlatform = false;
+                    hasRightPlatform = false;
+
+                    DestroyLocalPlatform(true);
+                    DestroyLocalPlatform(false);
                 }
 
                 return;
@@ -138,7 +148,7 @@ namespace PlatformMonke.Behaviours
             Vector3 handEulerAngles = hand.eulerAngles;
             GorillaVelocityEstimator estimator = isLeftHand ? leftHandEstimator : rightHandEstimator;
 
-            float distance = Player.Instance.minimumRaycastDistance * 1.4f;
+            float distance = Player.Instance.minimumRaycastDistance * 1.1f;
             VRRig localRig = VRRig.LocalRig;
             Vector3 displacement = (isLeftHand ? -localRig.leftHandTransform.parent.right : localRig.rightHandTransform.parent.right) * distance;
             Vector3 rigVelocity = localRig.LatestVelocity();
@@ -146,9 +156,12 @@ namespace PlatformMonke.Behaviours
             Vector3 finalPosition = handPosition + displacement + (totalVelocity * Time.smoothDeltaTime);
 
             CreatePlatform(isLeftHand, finalPosition, handEulerAngles, (isLeftHand ? Configuration.LeftPlatformSize : Configuration.RightPlatformSize).Value, (isLeftHand ? Configuration.LeftPlatformColour : Configuration.RightPlatformColour).Value, LocalPlayer);
+
+            bool hasPlatform = isLeftHand ? ref hasLeftPlatform : ref hasRightPlatform;
+            hasPlatform = true;
         }
 
-        public void UpdatePlatform(bool isLeftHand)
+        private void UpdatePlatform(bool isLeftHand)
         {
             if (platforms.TryGetValue(LocalPlayer, out var collection) && collection.TryGetValue(isLeftHand, out PlatformController controller))
             {
@@ -160,12 +173,17 @@ namespace PlatformMonke.Behaviours
         private void DestroyLocalPlatform(bool isLeftHand)
         {
             DestroyPlatform(isLeftHand, LocalPlayer);
+
+            bool hasPlatform = isLeftHand ? ref hasLeftPlatform : ref hasRightPlatform;
+            hasPlatform = false;
         }
 
         public void CreatePlatform(bool isLeftHand, Vector3 position, Vector3 eulerAngles, PlatformSize size, PlatformColour colour, NetPlayer owner)
         {
             try
             {
+                if (owner == null || owner.IsNull) throw new ArgumentNullException(nameof(owner));
+
                 if (!platforms.TryGetValue(owner, out Dictionary<bool, PlatformController> collection))
                 {
                     collection = [];
@@ -180,7 +198,7 @@ namespace PlatformMonke.Behaviours
 
                 if (collection.TryGetValue(!isLeftHand, out PlatformController oppositeController) && oppositeController.IsStickyPlatform)
                 {
-                    oppositeController.ClearStickyFactor();
+                    oppositeController.EndStickyEffect();
                 }
 
                 controller = new(new Platform()
@@ -195,9 +213,10 @@ namespace PlatformMonke.Behaviours
 
                 collection.Add(isLeftHand, controller);
             }
-            catch
+            catch (Exception ex)
             {
-
+                Logging.Fatal($"Platform creation failure for {((owner == null || owner.IsNull) ? "null player" : owner.NickName)}");
+                Logging.Error(ex);
             }
         }
 
@@ -205,6 +224,8 @@ namespace PlatformMonke.Behaviours
         {
             try
             {
+                if (owner == null || owner.IsNull) throw new ArgumentNullException(nameof(owner));
+
                 if (!platforms.TryGetValue(owner, out Dictionary<bool, PlatformController> collection)) return;
 
                 if (collection.TryGetValue(isLeftHand, out PlatformController controller))
@@ -213,9 +234,10 @@ namespace PlatformMonke.Behaviours
                     collection.Remove(isLeftHand);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-
+                Logging.Fatal($"Platform deletion failure for {((owner == null || owner.IsNull) ? "null player" : owner.NickName)}");
+                Logging.Error(ex);
             }
         }
 
@@ -236,6 +258,7 @@ namespace PlatformMonke.Behaviours
 
         private void OnPlayerJoined(NetPlayer player)
         {
+            if (player.IsLocal) return;
             if (!whitelistedPlayers.Contains(player))
             {
                 whitelistedPlayers.Add(player);
@@ -277,14 +300,17 @@ namespace PlatformMonke.Behaviours
                     }
                 }
 
-                foreach (NetPlayer player in playersToWhitelist)
-                {
-                    if (!whitelistedPlayers.Contains(player))
-                        whitelistedPlayers.Add(player);
-                }
+                playersToWhitelist.Where(player => !whitelistedPlayers.Contains(player)).ForEach(player => whitelistedPlayers.Add(player));
 
                 if (whitelistedPlayerCache != null && !whitelistedPlayerCache.SequenceEqual(whitelistedPlayers))
                     whitelistedPlayerCache = null;
+
+                foreach (var (player, collection) in platforms)
+                {
+                    if (player.IsLocal) continue;
+                    bool isCollisionAllowed = playersToWhitelist.Contains(player);
+                    collection.Values.ForEach(controller => controller.EvaluatePlatformCollision(isCollisionAllowed));
+                }
 
                 return;
             }

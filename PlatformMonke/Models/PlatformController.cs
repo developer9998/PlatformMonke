@@ -13,36 +13,48 @@ namespace PlatformMonke.Models
 
         private bool isStickyPlatform;
 
-        private readonly Transform temporaryHeldTransform;
+        private Transform temporaryHeldTransform;
 
-        private readonly GorillaGrabber temporaryGrabber;
+        private GorillaGrabber temporaryGrabber;
 
         public PlatformController(Platform platform)
         {
             Platform = PlatformUtility.CreateObject(platform);
+            EvaluatePlatformCollision();
 
             if (Platform.IsLocal)
             {
                 NetworkManager.Instance.CreatePlatform(platform);
-
-                if (Configuration.StickyPlatforms.Value)
-                {
-                    isStickyPlatform = true;
-
-                    GameObject temporaryHeldObject = new($"Grab Object [{(Platform.IsLeftHand ? "Left" : "Right")}]");
-                    Transform hand = Platform.IsLeftHand ? Player.Instance.leftControllerTransform : Player.Instance.rightControllerTransform;
-                    temporaryHeldTransform = temporaryHeldObject.transform;
-                    temporaryHeldTransform.parent = Platform.Object.transform.parent;
-                    temporaryHeldTransform.position = hand.position;
-                    temporaryHeldTransform.eulerAngles = hand.eulerAngles;
-                    temporaryGrabber = hand.GetComponentInChildren<GorillaGrabber>();
-
-                    Player.Instance.AddHandHold(temporaryHeldTransform, Vector3.zero, temporaryGrabber, temporaryGrabber.IsRightHand, false, out _);
-                }
+                ApplyStickyEffect();
             }
         }
 
-        public void ClearStickyFactor()
+        public void EvaluatePlatformCollision(bool? allowedOverride = null)
+        {
+            Collider collider = Platform.Object.GetComponent<Collider>();
+            NetPlayer player = Platform.Owner;
+            collider.enabled = player.IsLocal || (allowedOverride.GetValueOrDefault(PlatformManager.Instance.WhitelistedPlayers.Contains(player)) && Plugin.Instance.InModdedRoom);
+        }
+
+        public void ApplyStickyEffect()
+        {
+            if (Configuration.StickyPlatforms.Value && !isStickyPlatform)
+            {
+                isStickyPlatform = true;
+
+                GameObject temporaryHeldObject = new($"Grab Object [{(Platform.IsLeftHand ? "Left" : "Right")}]");
+                Transform hand = Platform.IsLeftHand ? Player.Instance.leftControllerTransform : Player.Instance.rightControllerTransform;
+                temporaryHeldTransform = temporaryHeldObject.transform;
+                temporaryHeldTransform.parent = Platform.Object.transform.parent;
+                temporaryHeldTransform.position = hand.position;
+                temporaryHeldTransform.eulerAngles = hand.eulerAngles;
+                temporaryGrabber = hand.GetComponentInChildren<GorillaGrabber>();
+
+                Player.Instance.AddHandHold(temporaryHeldTransform, Vector3.zero, temporaryGrabber, temporaryGrabber.IsRightHand, false, out _);
+            }
+        }
+
+        public void EndStickyEffect()
         {
             if (isStickyPlatform)
             {
@@ -60,7 +72,7 @@ namespace PlatformMonke.Models
             if (Platform.IsLocal)
             {
                 NetworkManager.Instance.DestroyPlatform(Platform);
-                ClearStickyFactor();
+                EndStickyEffect();
             }
         }
     }

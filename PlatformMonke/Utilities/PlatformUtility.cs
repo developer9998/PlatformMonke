@@ -32,8 +32,6 @@ namespace PlatformMonke.Utilities
                 else if (platform.Colour == PlatformColour.PlayerColour) gameObject.AddComponent<PlatformCustomColour>().Rig = rig;
             }
 
-            gameObject.GetComponent<Collider>().enabled = platform.IsLocal;
-
             gameObject.AddComponent<GorillaSurfaceOverride>();
 
             platform.Object = gameObject;

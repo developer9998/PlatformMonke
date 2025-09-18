@@ -1,11 +1,14 @@
 ﻿using BepInEx.Configuration;
+using GorillaInfoWatch.Extensions;
 using GorillaInfoWatch.Models;
 using GorillaInfoWatch.Models.Attributes;
 using GorillaInfoWatch.Models.Enumerations;
 using GorillaInfoWatch.Models.Widgets;
+using PlatformMonke.Behaviours;
 using PlatformMonke.Tools;
 using PlatformMonke.Utilities;
 using System;
+using System.Linq;
 using UnityEngine;
 
 [assembly: InfoWatchCompatible]
@@ -22,41 +25,81 @@ namespace PlatformMonke.Models
         {
             NetworkSystem.Instance.OnMultiplayerStarted += SetContent;
             NetworkSystem.Instance.OnReturnedToSinglePlayer += SetContent;
+            NetworkSystem.Instance.OnPlayerJoined += OnPlayerActivity;
+            NetworkSystem.Instance.OnPlayerLeft += OnPlayerActivity;
         }
 
         public override void OnScreenUnload()
         {
             NetworkSystem.Instance.OnMultiplayerStarted -= SetContent;
             NetworkSystem.Instance.OnReturnedToSinglePlayer -= SetContent;
+            NetworkSystem.Instance.OnPlayerJoined -= OnPlayerActivity;
+            NetworkSystem.Instance.OnPlayerLeft -= OnPlayerActivity;
         }
 
         public override InfoContent GetContent()
         {
-            LineBuilder lines = new();
-            lines.Skip();
+            LineBuilder configLines = new();
+            configLines.Skip();
 
             if (!Plugin.Instance.InModdedRoom)
             {
-                lines.BeginCentre().BeginColour("FF6D49").Append("PlatformMonke must be disabled at this time").EndColour().EndAlign().AppendLine().AppendLine();
-                lines.BeginCentre().Append("You must enter a modded room in order to use PlatformMonke.").EndAlign().AppendLine();
+                configLines.BeginCentre().BeginColour("FF6D49").Append("PlatformMonke must be disabled at this time").EndColour().EndAlign().AppendLine().AppendLine();
+                configLines.BeginCentre().Append("You must enter a modded room in order to use PlatformMonke.").EndAlign().AppendLine();
 
-                return lines;
+                return configLines;
             }
 
-            lines.Add(Plugin.Instance.enabled ? "<color=green>Enabled</color>" : "<color=red>Disabled</color>", new Widget_Switch(Plugin.Instance.enabled, value =>
+            configLines.Add(Plugin.Instance.enabled ? "<color=green>Enabled</color>" : "<color=red>Disabled</color>", new Widget_Switch(Plugin.Instance.enabled, value =>
             {
                 Plugin.Instance.enabled = value;
                 SetText();
             })).Skip();
 
-            DrawEnumEntry(lines, Configuration.LeftPlatformSize);
-            DrawEnumEntry(lines, Configuration.RightPlatformSize);
-            DrawEnumEntry(lines, Configuration.LeftPlatformColour);
-            DrawEnumEntry(lines, Configuration.RightPlatformColour);
-            DrawBoolEntry(lines, Configuration.RemoveReleasedPlatforms);
-            DrawBoolEntry(lines, Configuration.StickyPlatforms);
+            DrawEnumEntry(configLines, Configuration.LeftPlatformSize);
+            DrawEnumEntry(configLines, Configuration.RightPlatformSize);
+            DrawEnumEntry(configLines, Configuration.LeftPlatformColour);
+            DrawEnumEntry(configLines, Configuration.RightPlatformColour);
+            DrawBoolEntry(configLines, Configuration.RemoveReleasedPlatforms);
+            DrawBoolEntry(configLines, Configuration.StickyPlatforms);
 
-            return lines;
+            PageBuilder pages = new();
+            pages.AddPage(lines: configLines);
+
+            if (NetworkSystem.Instance.RoomPlayerCount > 1)
+            {
+                LineBuilder interactionLines = new();
+
+                interactionLines.Skip().AddRange("You can collide with platforms created by a player by selecting them".ToTextArray()).Add();
+
+                NetPlayer[] playerArray = (NetPlayer[])NetworkSystem.Instance.PlayerListOthers.Clone();
+                Array.Sort(playerArray, (x, y) => x.ActorNumber.CompareTo(y.ActorNumber));
+
+                foreach(NetPlayer player in playerArray)
+                {
+                    if (player == null || player.IsNull) continue;
+
+                    string sanitizedName = player.SanitizedNickName;
+                    
+                    interactionLines.Add((sanitizedName == null || sanitizedName.Length == 0) ? player.NickName : sanitizedName, new Widget_Switch(PlatformManager.Instance.WhitelistedPlayers.Contains(player), value =>
+                    {
+                        if (!player.IsLocal && !player.InRoom) return;
+
+                        string playerId = player.UserId;
+                        string[] array = Configuration.WhitelistedPlayers.Value;
+                        int index = Array.IndexOf(array, playerId);
+
+                        if (value && index == -1) Configuration.WhitelistedPlayers.Value = [.. array.Append(playerId)];
+                        else if (!value && index != -1) Configuration.WhitelistedPlayers.Value = [.. array.Take(index).Concat(array.Skip(index + 1))];
+
+                        SetContent();
+                    }));
+                }
+
+                pages.AddPage(lines: interactionLines);
+            }
+
+            return pages;
         }
 
         public LineBuilder DrawEnumEntry<T>(LineBuilder lines, ConfigEntry<T> entry) where T : struct, Enum
@@ -115,5 +158,7 @@ namespace PlatformMonke.Models
 
             return lines;
         }
+
+        public void OnPlayerActivity(NetPlayer _) => SetContent();
     }
 }

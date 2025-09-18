@@ -24,7 +24,16 @@ namespace PlatformMonke.Behaviours
             }
 
             Instance = this;
-            PhotonNetwork.NetworkingClient.EventReceived += OnEvent;
+
+            NetworkSystem netSys = NetworkSystem.Instance;
+
+            if (netSys != null && netSys is NetworkSystemPUN)
+            {
+                PhotonNetwork.NetworkingClient.EventReceived += OnEvent;
+                return;
+            }
+
+            Logging.Warning($"Gorilla Tag is running on {(netSys != null ? netSys.CurrentPhotonBackend : "N/A")} backend rather than PUN");
         }
 
         public void CreatePlatform(Platform platform)
@@ -43,9 +52,10 @@ namespace PlatformMonke.Behaviours
                 ];
                 RaiseEvent(createLabel, parameters);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-
+                Logging.Fatal("Platform creation event failed to raise");
+                Logging.Error(ex);
             }
         }
 
@@ -58,9 +68,10 @@ namespace PlatformMonke.Behaviours
                 object[] parameters = [platform.IsLeftHand];
                 RaiseEvent(destroyLabel, parameters);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-
+                Logging.Fatal("Platform deletion event failed to raise");
+                Logging.Error(ex);
             }
         }
 
@@ -76,6 +87,8 @@ namespace PlatformMonke.Behaviours
 
         public void OnEvent(EventData eventData)
         {
+            NetPlayer player = null;
+
             try
             {
                 if (eventData.Code != 176) return;
@@ -83,7 +96,8 @@ namespace PlatformMonke.Behaviours
                 object[] data = (object[])eventData.CustomData;
                 if (data.Length == 0 || data.ElementAtOrDefault(0) is not int labelHash || (labelHash != createLabel && labelHash != destroyLabel)) return;
 
-                NetPlayer player = NetworkSystem.Instance.GetPlayer(eventData.Sender);
+                player = NetworkSystem.Instance.GetPlayer(eventData.Sender);
+
                 Logging.Message($"OnEvent from {player.NickName}:\n{string.Join("\n", data)}");
 
                 bool isLeftHand = (bool)data.ElementAtOrDefault(1);
@@ -106,9 +120,10 @@ namespace PlatformMonke.Behaviours
 
                 PlatformManager.Instance.DestroyPlatform(isLeftHand, player);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-
+                Logging.Fatal($"Platform event failure for {((player == null || player.IsNull) ? "null player" : player.NickName)}");
+                Logging.Error(ex);
             }
         }
     }
