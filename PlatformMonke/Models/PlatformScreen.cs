@@ -75,12 +75,12 @@ namespace PlatformMonke.Models
                 NetPlayer[] playerArray = (NetPlayer[])NetworkSystem.Instance.PlayerListOthers.Clone();
                 Array.Sort(playerArray, (x, y) => x.ActorNumber.CompareTo(y.ActorNumber));
 
-                foreach(NetPlayer player in playerArray)
+                foreach (NetPlayer player in playerArray)
                 {
                     if (player == null || player.IsNull) continue;
 
                     string sanitizedName = player.SanitizedNickName;
-                    
+
                     interactionLines.Add((sanitizedName == null || sanitizedName.Length == 0) ? player.NickName : sanitizedName, new Widget_Switch(PlatformManager.Instance.WhitelistedPlayers.Contains(player), value =>
                     {
                         if (!player.IsLocal && !player.InRoom) return;

@@ -259,7 +259,8 @@ namespace PlatformMonke.Behaviours
         private void OnPlayerJoined(NetPlayer player)
         {
             if (player.IsLocal) return;
-            if (!whitelistedPlayers.Contains(player))
+
+            if (Configuration.WhitelistedPlayers.Value.Contains(player.UserId) && !whitelistedPlayers.Contains(player))
             {
                 whitelistedPlayers.Add(player);
                 whitelistedPlayerCache = null;
@@ -295,7 +296,7 @@ namespace PlatformMonke.Behaviours
                 {
                     if (!playersToWhitelist.Contains(whitelistedPlayers[i]))
                     {
-                        whitelistedPlayers.Remove(whitelistedPlayers[i]);
+                        whitelistedPlayers.RemoveAt(i);
                         i--;
                     }
                 }
