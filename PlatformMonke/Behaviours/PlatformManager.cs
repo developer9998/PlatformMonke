@@ -43,7 +43,7 @@ namespace PlatformMonke.Behaviours
 
         private GorillaVelocityEstimator leftHandEstimator, rightHandEstimator;
 
-        private readonly Dictionary<NetPlayer, Dictionary<bool, PlatformController>> platforms = [];
+        private readonly Dictionary<NetPlayer, PlatformController> leftPlatforms = [], rightPlatforms = [];
 
         private readonly List<NetPlayer> whitelistedPlayers = [];
 
@@ -91,7 +91,7 @@ namespace PlatformMonke.Behaviours
                     hasLeftPlatform = false;
 
                     if (Configuration.RemoveReleasedPlatforms.Value) DestroyLocalPlatform(true);
-                    else if (platforms.ContainsKey(LocalPlayer) && platforms[LocalPlayer].TryGetValue(true, out PlatformController leftController) && leftController.IsStickyPlatform) leftController.EndStickyEffect();
+                    else if (leftPlatforms.TryGetValue(LocalPlayer, out PlatformController leftController) && leftController.IsStickyPlatform) leftController.EndStickyEffect();
 
                     if (Configuration.StickyPlatforms.Value) Player.Instance.playerRigidBody.linearVelocity = Player.Instance.bodyVelocityTracker.GetAverageVelocity(true);
                 }
@@ -106,7 +106,7 @@ namespace PlatformMonke.Behaviours
                     hasRightPlatform = false;
 
                     if (Configuration.RemoveReleasedPlatforms.Value) DestroyLocalPlatform(false);
-                    else if (platforms.ContainsKey(LocalPlayer) && platforms[LocalPlayer].TryGetValue(false, out PlatformController rightController) && rightController.IsStickyPlatform) rightController.EndStickyEffect();
+                    else if (rightPlatforms.TryGetValue(LocalPlayer, out PlatformController rightController) && rightController.IsStickyPlatform) rightController.EndStickyEffect();
 
                     if (Configuration.StickyPlatforms.Value) Player.Instance.playerRigidBody.linearVelocity = Player.Instance.bodyVelocityTracker.GetAverageVelocity(true);
                 }
@@ -129,15 +129,18 @@ namespace PlatformMonke.Behaviours
                 hasLeftPlatform = false;
                 hasRightPlatform = false;
 
-                foreach (var (owner, collection) in platforms)
+                foreach (var owner in leftPlatforms.Keys.ToArray())
                 {
-                    foreach (var isLeftHand in collection.Keys)
-                    {
-                        DestroyPlatform(isLeftHand, owner);
-                    }
+                    DestroyPlatform(true, owner);
                 }
 
-                platforms.Clear();
+                foreach (var owner in rightPlatforms.Keys.ToArray())
+                {
+                    DestroyPlatform(false, owner);
+                }
+
+                leftPlatforms.Clear();
+                rightPlatforms.Clear();
             }
         }
 
@@ -163,7 +166,8 @@ namespace PlatformMonke.Behaviours
 
         private void UpdatePlatform(bool isLeftHand)
         {
-            if (platforms.TryGetValue(LocalPlayer, out var collection) && collection.TryGetValue(isLeftHand, out PlatformController controller))
+            var dictionary = isLeftHand ? leftPlatforms : rightPlatforms;
+            if (dictionary.TryGetValue(LocalPlayer, out PlatformController controller))
             {
                 Platform platform = controller.Platform;
                 CreatePlatform(isLeftHand, platform.Position, platform.EulerAngles, (isLeftHand ? Configuration.LeftPlatformSize : Configuration.RightPlatformSize).Value, (isLeftHand ? Configuration.LeftPlatformColour : Configuration.RightPlatformColour).Value, LocalPlayer);
@@ -184,19 +188,15 @@ namespace PlatformMonke.Behaviours
             {
                 if (owner == null || owner.IsNull) throw new ArgumentNullException(nameof(owner));
 
-                if (!platforms.TryGetValue(owner, out Dictionary<bool, PlatformController> collection))
-                {
-                    collection = [];
-                    platforms.Add(owner, collection);
-                }
+                var dictionary = isLeftHand ? leftPlatforms : rightPlatforms;
+                var oppositeDictionary = isLeftHand ? rightPlatforms : leftPlatforms;
 
-                if (collection.TryGetValue(isLeftHand, out PlatformController controller))
+                if (dictionary.TryGetValue(owner, out PlatformController controller))
                 {
                     controller.Destroy();
-                    collection.Remove(isLeftHand);
                 }
 
-                if (collection.TryGetValue(!isLeftHand, out PlatformController oppositeController) && oppositeController.IsStickyPlatform)
+                if (oppositeDictionary.TryGetValue(owner, out PlatformController oppositeController) && oppositeController.IsStickyPlatform)
                 {
                     oppositeController.EndStickyEffect();
                 }
@@ -211,7 +211,8 @@ namespace PlatformMonke.Behaviours
                     Owner = owner
                 });
 
-                collection.Add(isLeftHand, controller);
+                if (dictionary.ContainsKey(owner)) dictionary[owner] = controller;
+                else dictionary.Add(owner, controller);
             }
             catch (Exception ex)
             {
@@ -226,12 +227,12 @@ namespace PlatformMonke.Behaviours
             {
                 if (owner == null || owner.IsNull) throw new ArgumentNullException(nameof(owner));
 
-                if (!platforms.TryGetValue(owner, out Dictionary<bool, PlatformController> collection)) return;
+                var dictionary = isLeftHand ? leftPlatforms : rightPlatforms;
 
-                if (collection.TryGetValue(isLeftHand, out PlatformController controller))
+                if (dictionary.TryGetValue(owner, out PlatformController controller))
                 {
                     controller.Destroy();
-                    collection.Remove(isLeftHand);
+                    dictionary.Remove(owner);
                 }
             }
             catch (Exception ex)
@@ -269,14 +270,16 @@ namespace PlatformMonke.Behaviours
 
         private void OnPlayerLeft(NetPlayer player)
         {
-            if (platforms.TryGetValue(player, out var collection))
+            if (leftPlatforms.ContainsKey(player))
             {
-                foreach (var isLeftHand in collection.Keys)
-                {
-                    DestroyPlatform(isLeftHand, player);
-                }
+                DestroyPlatform(true, player);
+                leftPlatforms.Remove(player);
+            }
 
-                platforms.Remove(player);
+            if (rightPlatforms.ContainsKey(player))
+            {
+                DestroyPlatform(false, player);
+                rightPlatforms.Remove(player);
             }
 
             if (whitelistedPlayers.Remove(player))
@@ -306,11 +309,16 @@ namespace PlatformMonke.Behaviours
                 if (whitelistedPlayerCache != null && !whitelistedPlayerCache.SequenceEqual(whitelistedPlayers))
                     whitelistedPlayerCache = null;
 
-                foreach (var (player, collection) in platforms)
+                foreach (var (player, controller) in leftPlatforms)
                 {
                     if (player.IsLocal) continue;
-                    bool isCollisionAllowed = playersToWhitelist.Contains(player);
-                    collection.Values.ForEach(controller => controller.EvaluatePlatformCollision(isCollisionAllowed));
+                    controller.EvaluatePlatformCollision(playersToWhitelist.Contains(player));
+                }
+
+                foreach (var (player, controller) in rightPlatforms)
+                {
+                    if (player.IsLocal) continue;
+                    controller.EvaluatePlatformCollision(playersToWhitelist.Contains(player));
                 }
 
                 return;
