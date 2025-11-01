@@ -43,7 +43,7 @@ namespace PlatformMonke.Models
                 isStickyPlatform = true;
 
                 GameObject temporaryHeldObject = new($"Grab Object [{(Platform.IsLeftHand ? "Left" : "Right")}]");
-                Transform hand = Platform.IsLeftHand ? Player.Instance.leftControllerTransform : Player.Instance.rightControllerTransform;
+                Transform hand = Platform.IsLeftHand ? Player.Instance.LeftHand.controllerTransform : Player.Instance.RightHand.controllerTransform;
                 temporaryHeldTransform = temporaryHeldObject.transform;
                 temporaryHeldTransform.parent = Platform.Object.transform.parent;
                 temporaryHeldTransform.position = hand.position;

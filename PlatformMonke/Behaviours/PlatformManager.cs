@@ -59,10 +59,10 @@ namespace PlatformMonke.Behaviours
 
             localPlayer = NetworkSystem.Instance?.GetLocalPlayer();
 
-            leftHandEstimator = Player.Instance.leftControllerTransform.gameObject.AddComponent<GorillaVelocityEstimator>();
+            leftHandEstimator = Player.Instance.leftHand.controllerTransform.gameObject.AddComponent<GorillaVelocityEstimator>();
             leftHandEstimator.useGlobalSpace = true;
 
-            rightHandEstimator = Player.Instance.rightControllerTransform.gameObject.AddComponent<GorillaVelocityEstimator>();
+            rightHandEstimator = Player.Instance.rightHand.controllerTransform.gameObject.AddComponent<GorillaVelocityEstimator>();
             rightHandEstimator.useGlobalSpace = true;
 
             NetworkSystem.Instance.OnMultiplayerStarted += OnJoinedRoom;
@@ -146,7 +146,7 @@ namespace PlatformMonke.Behaviours
 
         private void CreateLocalPlatform(bool isLeftHand)
         {
-            Transform hand = isLeftHand ? Player.Instance.leftHandFollower : Player.Instance.rightHandFollower;
+            Transform hand = isLeftHand ? Player.Instance.leftHand.handFollower : Player.Instance.rightHand.handFollower;
             Vector3 handPosition = hand.position;
             Vector3 handEulerAngles = hand.eulerAngles;
             GorillaVelocityEstimator estimator = isLeftHand ? leftHandEstimator : rightHandEstimator;
