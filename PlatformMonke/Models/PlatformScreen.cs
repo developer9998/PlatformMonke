@@ -1,8 +1,6 @@
 ﻿using BepInEx.Configuration;
-using GorillaInfoWatch.Extensions;
 using GorillaInfoWatch.Models;
 using GorillaInfoWatch.Models.Attributes;
-using GorillaInfoWatch.Models.Enumerations;
 using GorillaInfoWatch.Models.Widgets;
 using PlatformMonke.Behaviours;
 using PlatformMonke.Tools;
@@ -64,13 +62,11 @@ namespace PlatformMonke.Models
             DrawBoolEntry(configLines, Configuration.StickyPlatforms);
 
             PageBuilder pages = new();
-            pages.AddPage(lines: configLines);
+            pages.Add(configLines);
 
             if (NetworkSystem.Instance.RoomPlayerCount > 1)
             {
                 LineBuilder interactionLines = new();
-
-                interactionLines.Skip().AddRange("You can collide with platforms created by a player by selecting them".ToTextArray()).Add();
 
                 NetPlayer[] playerArray = (NetPlayer[])NetworkSystem.Instance.PlayerListOthers.Clone();
                 Array.Sort(playerArray, (x, y) => x.ActorNumber.CompareTo(y.ActorNumber));
@@ -96,7 +92,7 @@ namespace PlatformMonke.Models
                     }));
                 }
 
-                pages.AddPage(lines: interactionLines);
+                pages.Add(null, "You can collide with platforms created by a player by selecting them", interactionLines);
             }
 
             return pages;
